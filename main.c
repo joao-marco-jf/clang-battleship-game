@@ -20,7 +20,7 @@
 #define SPY_TWO_LEN 6
 #define AIRCRAFT_CARRIER_LEN 10
 
-#define BUOY_AMOUNT __DBL_MIN_10_EXP__
+#define BUOY_AMOUNT 10
 #define AIRPLANE_AMOUNT 5
 #define SUBMARINE_AMOUNT 5
 #define SPY_ONE_AMOUNT 4
@@ -48,6 +48,8 @@ int parts_format[6][10][2] = {{{0, 0}},
                                {3, -1},
                                {4, -1}}};
 
+FILE *pFile;
+
 void incializar_mapa(int map[MAP_SIZE][MAP_SIZE]) {
   for (int i = 0; i < MAP_SIZE; i++) {
     for (int j = 0; j < MAP_SIZE; j++) {
@@ -67,9 +69,9 @@ void mostrar_mapa(int map[MAP_SIZE][MAP_SIZE]) {
     }
     for (int j = 0; j < MAP_SIZE; j++) {
       if (map[i][j] == SEA) {
-        printf(". ");
+        printf("* ");
       } else if (map[i][j] == -2) {
-        printf("x ");
+        printf("# ");
       } else {
         printf("%d ", map[i][j]);
       }
@@ -91,20 +93,36 @@ int verificar_posicoes(int map[MAP_SIZE][MAP_SIZE], int part_size,
   return 1;
 }
 
-void rotacionar_peca(int part_size, int positions[][2], int x, int y) {
-  int direction = rand() % 4;
+void rotate_part_positions(int part_size, int positions[][2], int x, int y,
+                           char *pos, char direction_char) {
+  int direction;
+  if (direction_char == 'E')
+    direction = 0;
+  else if (direction_char == 'D')
+    direction = 1;
+  else if (direction_char == 'C')
+    direction = 2;
+  else if (direction_char == 'B')
+    direction = 3;
+  else
+    direction = rand() % 4;
+
   for (int i = 0; i < part_size; i++) {
     if (direction == 0) {
+      *pos = 'E';
       positions[i][0] = -(-x + positions[i][0]);
       positions[i][1] = y + positions[i][1];
     } else if (direction == 1) {
+      *pos = 'D';
       positions[i][0] = x + positions[i][0];
       positions[i][1] = y + positions[i][1];
     } else if (direction == 2) {
+      *pos = 'C';
       int cache = positions[i][0];
       positions[i][0] = y + positions[i][1];
       positions[i][1] = -(-x + cache);
     } else if (direction == 3) {
+      *pos = 'B';
       int cache = positions[i][0];
       positions[i][0] = y + positions[i][1];
       positions[i][1] = x + cache;
@@ -112,24 +130,59 @@ void rotacionar_peca(int part_size, int positions[][2], int x, int y) {
   }
 }
 
+void build_part_shape(int *x, int *y, int line, int column, int part_size,
+                      int part_number, int positions[part_size][2]) {
+  if (line == -1 || column == -1) {
+    *x = rand() % MAP_SIZE;
+    *y = rand() % MAP_SIZE;
+  } else {
+    *x = column;
+    *y = line;
+  }
+
+  for (int i = 0; i < part_size; i++) {
+    positions[i][0] = parts_format[part_number][i][0];
+    positions[i][1] = parts_format[part_number][i][1];
+  }
+}
+
 void colocar_peca(int map[MAP_SIZE][MAP_SIZE], int part_number,
-                  int part_quantity) {
-  int index = 0;
-  while (index < part_quantity) {
-    int x = rand() % MAP_SIZE;
-    int y = rand() % MAP_SIZE;
-    int part_size = 10;
-    int positions[part_size][2];
-    for (int i = 0; i < part_size; i++) {
-      positions[i][0] = parts_format[part_number][i][0];
-      positions[i][1] = parts_format[part_number][i][1];
+                  int part_quantity, int isRandom, int line, int column,
+                  char direction) {
+  int x, y;
+  char pos;
+  int positions[10][2];
+  if (isRandom) {
+    int index = 0;
+    while (index < part_quantity) {
+      build_part_shape(&x, &y, line, column, 10, part_number, positions);
+      rotate_part_positions(10, positions, x, y, &pos, '0');
+      if (verificar_posicoes(map, 10, positions)) {
+        pFile = fopen("./tabuleiro.txt", "a");
+        if (pos == 'E' || pos == 'D') {
+          fprintf(pFile, "%d %d %c %d\n", y, x, pos, part_number);
+        } else {
+          fprintf(pFile, "%d %d %c %d\n", x, y, pos, part_number);
+        }
+        fclose(pFile);
+
+        for (int i = 0; i < 10; i++) {
+          map[positions[i][1]][positions[i][0]] = part_number;
+        }
+        index++;
+      }
     }
-    rotacionar_peca(part_size, positions, x, y);
-    if (verificar_posicoes(map, part_size, positions)) {
-      for (int i = 0; i < part_size; i++) {
+  } else {
+    build_part_shape(&x, &y, line, column, 10, part_number, positions);
+    if (direction == 'D' || direction == 'E') {
+      rotate_part_positions(10, positions, y, x, &pos, direction);
+    } else {
+      rotate_part_positions(10, positions, x, y, &pos, direction);
+    }
+    if (verificar_posicoes(map, 10, positions)) {
+      for (int i = 0; i < 10; i++) {
         map[positions[i][1]][positions[i][0]] = part_number;
       }
-      index++;
     }
   }
 }
@@ -188,55 +241,33 @@ void last_occurrence(int plays_made_len, int plays_made[plays_made_len][4],
 
 void random_play(int plays_made_len, int plays_made[plays_made_len][4],
                  int *line, int *column) {
+  int tests[8][2] = {{1, 0}, {-1, 0},  {0, 1},  {0, -1},
+                     {1, 1}, {-1, -1}, {1, -1}, {-1, 1}};
+
   *line = plays_made[plays_made_len - 1][0];
   *column = plays_made[plays_made_len - 1][1];
 
   while (1) {
-    int range = 10;
+    int range = 15;
     int rand_index = rand() % plays_made_len;
     *line = plays_made[rand_index][0];
     *column = plays_made[rand_index][1];
     int rand_line = rand() % range;
     int rand_column = rand() % range;
 
-    if (!is_marked(plays_made_len, plays_made, *line, *column + rand_column)) {
-      *column = *column + rand_column;
-      break;
-    } else if (!is_marked(plays_made_len, plays_made, *line,
-                          *column - rand_column)) {
-      *column = *column - rand_column;
-      break;
-    } else if (!is_marked(plays_made_len, plays_made, *line + rand_line,
-                          *column)) {
-      *line = *line + rand_line;
-      break;
-    } else if (!is_marked(plays_made_len, plays_made, *line - rand_line,
-                          *column)) {
-      *line = *line - rand_line;
-      break;
-    } else if (!is_marked(plays_made_len, plays_made, *line + rand_line,
-                          *column + rand_column)) {
-      *column = *column + rand_column;
-      break;
-    } else if (!is_marked(plays_made_len, plays_made, *line - rand_line,
-                          *column - rand_column)) {
-      *column = *column - rand_column;
-      break;
-    } else if (!is_marked(plays_made_len, plays_made, *line + rand_line,
-                          *column + rand_column)) {
-      *line = *line + rand_line;
-      break;
-    } else if (!is_marked(plays_made_len, plays_made, *line - rand_line,
-                          *column - rand_column)) {
-      *line = *line - rand_line;
-      break;
-    } else if (!is_marked(plays_made_len, plays_made, *line - rand_line,
-                          *column + rand_column)) {
-      *line = *line + rand_line;
-      break;
-    } else if (!is_marked(plays_made_len, plays_made, *line + rand_line,
-                          *column - rand_column)) {
-      *line = *line - rand_line;
+    int is_break_time = 0;
+    for (int i = 0; i < 8; i++) {
+      if (!is_marked(plays_made_len, plays_made,
+                     *line + (rand_line * tests[i][1]),
+                     *column + (rand_column * tests[i][0]))) {
+        *line = *line + (rand_line * tests[i][1]);
+        *column = *column + (rand_column * tests[i][0]);
+        is_break_time = 1;
+        break;
+      }
+    }
+
+    if (is_break_time) {
       break;
     }
   }
@@ -244,15 +275,20 @@ void random_play(int plays_made_len, int plays_made[plays_made_len][4],
 
 void try_to_shroud(int index, int plays_made_len,
                    int plays_made[plays_made_len][4], int *line, int *column) {
-  if (!is_marked(plays_made_len, plays_made, *line, *column + 1)) {
-    *column = *column + 1;
-  } else if (!is_marked(plays_made_len, plays_made, *line, *column - 1)) {
-    *column = *column - 1;
-  } else if (!is_marked(plays_made_len, plays_made, *line + 1, *column)) {
-    *line = *line + 1;
-  } else if (!is_marked(plays_made_len, plays_made, *line - 1, *column)) {
-    *line = *line - 1;
-  } else {
+  int tests[8][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
+  int is_random_time = 1;
+  for (int i = 0; i < 8; i++) {
+    if (!is_marked(plays_made_len, plays_made, *line + tests[i][1],
+                   *column + tests[i][0])) {
+      *line = *line + tests[i][1];
+      *column = *column + tests[i][0];
+      is_random_time = 0;
+      break;
+    }
+  }
+
+  if (is_random_time) {
     int last_index = -1;
     last_occurrence(index, plays_made, &last_index);
     if (last_index == -1) {
@@ -286,31 +322,24 @@ void resolver(int plays_made_len, int plays_made[plays_made_len][4], int *line,
 }
 
 void last_move(int plays_made_len, int plays_made[plays_made_len][4]) {
+  int parts = plays_made[plays_made_len - 1][3];
+  int line = plays_made[plays_made_len - 1][0];
+  int column = plays_made[plays_made_len - 1][1];
+
   printf("+----------------------------------------+\n");
   printf("| ÚLTIMA JOGADA                          |\n");
   printf("+----------------------------------------+\n");
-  if (plays_made[plays_made_len - 1][3] < 10 ||
-      plays_made[plays_made_len - 1][3] < 0)
-    printf("| PEÇA: %i                                |\n",
-           plays_made[plays_made_len - 1][3]);
+  if (parts < 10 || parts < 0)
+    printf("| PEÇA: %i                                |\n", parts);
   else
-    printf("| PEÇA: %i                               |\n",
-           plays_made[plays_made_len - 1][3]);
+    printf("| PEÇA: %i                               |\n", parts);
   printf("+----------------------------------------+\n");
-  if (plays_made[plays_made_len - 1][0] < 10 &&
-      plays_made[plays_made_len - 1][1] < 10)
-    printf("| LINHA: %i, COLUNA: %i                    |\n",
-           plays_made[plays_made_len - 1][0],
-           plays_made[plays_made_len - 1][1]);
-  else if (plays_made[plays_made_len - 1][0] < 10 ||
-           plays_made[plays_made_len - 1][1] < 10)
-    printf("| LINHA: %i, COLUNA: %i                   |\n",
-           plays_made[plays_made_len - 1][0],
-           plays_made[plays_made_len - 1][1]);
+  if (line < 10 && column < 10)
+    printf("| LINHA: %i, COLUNA: %i                    |\n", line, column);
+  else if (line < 10 || column < 10)
+    printf("| LINHA: %i, COLUNA: %i                   |\n", line, column);
   else
-    printf("| LINHA: %i, COLUNA: %i                  |\n",
-           plays_made[plays_made_len - 1][0],
-           plays_made[plays_made_len - 1][1]);
+    printf("| LINHA: %i, COLUNA: %i                  |\n", line, column);
   printf("+----------------------------------------+\n");
 }
 
@@ -333,23 +362,20 @@ void scoreboard(int hits, int mistakes) {
 
 void game_over(int isWin, int hidden_map[MAP_SIZE][MAP_SIZE], int hits,
                int mistakes) {
+  printf("+----------------------------------------+\n");
   if (isWin) {
-    printf("+----------------------------------------+\n");
     printf("|               VOCÊ VENCEU              |\n");
-    printf("+----------------------------------------+\n");
-
   } else {
-    printf("+----------------------------------------+\n");
     printf("|               VOCÊ PERDEU              |\n");
-    printf("+----------------------------------------+\n");
   }
+  printf("+----------------------------------------+\n");
   scoreboard(hits, mistakes);
   mostrar_mapa(hidden_map);
 }
 
 void play(int plays_made_len, int plays_made[plays_made_len][4],
           int map[MAP_SIZE][MAP_SIZE], int hidden_map[MAP_SIZE][MAP_SIZE],
-          int hits, int mistakes, int withResolve) {
+          int hits, int mistakes, int withResolve, int withSleep) {
   int line, column, move_type;
 
   scoreboard(hits, mistakes);
@@ -370,7 +396,7 @@ void play(int plays_made_len, int plays_made[plays_made_len][4],
 
   if (line > 19 || line < 0 || column > 19 || column < 0) {
     play(plays_made_len, plays_made, map, hidden_map, hits, mistakes,
-         withResolve);
+         withResolve, withSleep);
   } else {
     move(plays_made_len, plays_made, map, hidden_map, line, column, &move_type);
 
@@ -389,7 +415,7 @@ void play(int plays_made_len, int plays_made[plays_made_len][4],
     plays_made[plays_made_len - 1][0] = line;
     plays_made[plays_made_len - 1][1] = column;
 
-    // sleep(1);
+    sleep(withSleep);
 
     if (hits == max_hits) {
       system("clear");
@@ -397,7 +423,7 @@ void play(int plays_made_len, int plays_made[plays_made_len][4],
     } else if (mistakes < (400 - max_hits)) {
       system("clear");
       play(plays_made_len, plays_made, map, hidden_map, hits, mistakes,
-           withResolve);
+           withResolve, withSleep);
     } else {
       system("clear");
       game_over(0, hidden_map, hits, mistakes);
@@ -412,11 +438,13 @@ void menu_map(int plays_made[2048][4], int map[MAP_SIZE][MAP_SIZE],
   printf("+----------------------------------------+\n");
   printf("| OPÇÕES                                 |\n");
   printf("+----------------------------------------+\n");
-  printf("| 1 | JOGAR                              |\n");
+  printf("| 1 | PLAY                               |\n");
   printf("+----------------------------------------+\n");
-  printf("| 2 | VER MAPA                           |\n");
+  printf("| 2 | SEE MAP                            |\n");
   printf("+----------------------------------------+\n");
-  printf("| 3 | RESOLVEDOR                         |\n");
+  printf("| 3 | FAST RESOLVER                      |\n");
+  printf("+----------------------------------------+\n");
+  printf("| 4 | SLOW RESOLVER                      |\n");
   printf("+----------------------------------------+\n");
   printf("\n");
   printf("-> ");
@@ -424,7 +452,7 @@ void menu_map(int plays_made[2048][4], int map[MAP_SIZE][MAP_SIZE],
 
   if (option == 1) {
     system("clear");
-    play(0, plays_made, map, hidden_map, 0, 0, 0);
+    play(0, plays_made, map, hidden_map, 0, 0, 0, 0);
   } else if (option == 2) {
     system("clear");
     mostrar_mapa(map);
@@ -432,10 +460,51 @@ void menu_map(int plays_made[2048][4], int map[MAP_SIZE][MAP_SIZE],
     menu_map(plays_made, map, hidden_map);
   } else if (option == 3) {
     system("clear");
-    play(0, plays_made, map, hidden_map, 0, 0, 1);
+    play(0, plays_made, map, hidden_map, 0, 0, 1, 0);
+  } else if (option == 4) {
+    system("clear");
+    play(0, plays_made, map, hidden_map, 0, 0, 1, 1);
   } else {
     menu_map(plays_made, map, hidden_map);
   }
+}
+
+void ler_mapa(int plays_made[2048][4], int map[MAP_SIZE][MAP_SIZE],
+              int hidden_map[MAP_SIZE][MAP_SIZE]) {
+  FILE *file;
+  int line, column, id;
+  char direction;
+  int temp;
+
+  file = fopen("./tabuleiro.txt", "r");
+  if (file == NULL) {
+    printf("Você ainda não tem um mapa criado\n\n");
+  }
+
+  while ((temp = fscanf(file, "%d %d %c %d", &column, &line, &direction,
+                        &id)) != EOF) {
+    if (temp != 4) {
+      printf("Erro ao ler o arquivo\n");
+      exit(0);
+    }
+
+    if (id == 0) {
+      colocar_peca(map, id, BUOY_LEN, 0, line, column, direction);
+    } else if (id == 1) {
+      colocar_peca(map, id, AIRPLANE_LEN, 0, line, column, direction);
+    } else if (id == 2) {
+      colocar_peca(map, id, SUBMARINE_LEN, 0, line, column, direction);
+    } else if (id == 3) {
+      colocar_peca(map, id, SPY_ONE_LEN, 0, line, column, direction);
+    } else if (id == 4) {
+      colocar_peca(map, id, SPY_TWO_LEN, 0, line, column, direction);
+    } else if (id == 5) {
+      colocar_peca(map, id, AIRCRAFT_CARRIER_LEN, 0, line, column, direction);
+    }
+  }
+
+  menu_map(plays_made, map, hidden_map);
+  fclose(file);
 }
 
 void menu(void) {
@@ -453,26 +522,35 @@ void menu(void) {
   scanf("%i", &option);
 
   if (option == 1) {
+    pFile = fopen("./tabuleiro.txt", "w");
+    fclose(pFile);
     int map[MAP_SIZE][MAP_SIZE];
     int hidden_map[MAP_SIZE][MAP_SIZE];
     int plays_made[2048][4];
     incializar_mapa(map);
     incializar_mapa(hidden_map);
     srand(time(NULL));
-    colocar_peca(map, AIRCRAFT_CARRIER, AIRCRAFT_CARRIER_AMOUNT);
-    colocar_peca(map, SPY_TWO, SPY_TWO_AMOUNT);
-    colocar_peca(map, SPY_ONE, SPY_ONE_AMOUNT);
-    colocar_peca(map, SUBMARINE, SUBMARINE_AMOUNT);
-    colocar_peca(map, AIRPLANE, AIRPLANE_AMOUNT);
-    colocar_peca(map, BUOY, BUOY_AMOUNT);
-
+    colocar_peca(map, AIRCRAFT_CARRIER, AIRCRAFT_CARRIER_AMOUNT, 1, -1, -1,
+                 '0');
+    colocar_peca(map, SPY_TWO, SPY_TWO_AMOUNT, 1, -1, -1, '0');
+    colocar_peca(map, SPY_ONE, SPY_ONE_AMOUNT, 1, -1, -1, '0');
+    colocar_peca(map, SUBMARINE, SUBMARINE_AMOUNT, 1, -1, -1, '0');
+    colocar_peca(map, AIRPLANE, AIRPLANE_AMOUNT, 1, -1, -1, '0');
+    colocar_peca(map, BUOY, BUOY_AMOUNT, 1, -1, -1, '0');
     system("clear");
     menu_map(plays_made, map, hidden_map);
   } else if (option == 2) {
+    system("clear");
+    int map[MAP_SIZE][MAP_SIZE];
+    int hidden_map[MAP_SIZE][MAP_SIZE];
+    int plays_made[2048][4];
 
+    incializar_mapa(map);
+    incializar_mapa(hidden_map);
+
+    ler_mapa(plays_made, map, hidden_map);
   } else {
     system("clear");
-    menu();
   }
 }
 
