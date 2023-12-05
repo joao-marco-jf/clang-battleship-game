@@ -27,11 +27,13 @@
 #define SPY_TWO_AMOUNT 4
 #define AIRCRAFT_CARRIER_AMOUNT 2
 
+// variavel de quantidade máxima de acertos - 118
 int max_hits = (BUOY_AMOUNT * BUOY_LEN) + (AIRPLANE_AMOUNT * AIRPLANE_LEN) +
                (SUBMARINE_AMOUNT * SUBMARINE_LEN) +
                (SPY_ONE_AMOUNT * SPY_ONE_LEN) + (SPY_TWO_AMOUNT * SPY_TWO_LEN) +
                (AIRCRAFT_CARRIER_AMOUNT * AIRCRAFT_CARRIER_LEN);
 
+//Formato das peças
 int parts_format[6][10][2] = {{{0, 0}},
                               {{0, 0}, {1, 0}, {0, 1}, {0, -1}},
                               {{0, 0}, {1, 0}, {2, 0}, {3, 0}},
@@ -48,8 +50,10 @@ int parts_format[6][10][2] = {{{0, 0}},
                                {3, -1},
                                {4, -1}}};
 
+//chamndo o arquivo para criar mapa novo
 FILE *pFile;
 
+//preenche uma matriz qualquer com -1, desde que seja 20x20 
 void incializar_mapa(int map[MAP_SIZE][MAP_SIZE]) {
   for (int i = 0; i < MAP_SIZE; i++) {
     for (int j = 0; j < MAP_SIZE; j++) {
@@ -58,6 +62,7 @@ void incializar_mapa(int map[MAP_SIZE][MAP_SIZE]) {
   }
 }
 
+//Mostra o mapa de inteiros formatando *(MAR) e #(ERRO)
 void mostrar_mapa(int map[MAP_SIZE][MAP_SIZE]) {
   printf("   0 1 2 3 4 5 6 7 8 9 1 1 1 1 1 1 1 1 1 1\n");
   printf("                       0 1 2 3 4 5 6 7 8 9\n");
@@ -80,6 +85,8 @@ void mostrar_mapa(int map[MAP_SIZE][MAP_SIZE]) {
   }
 }
 
+//Uma função que verifica multiplas posições, se as posições forem dentro do mapa e for igual a mar então retorna 1 (true)
+
 int verificar_posicoes(int map[MAP_SIZE][MAP_SIZE], int part_size,
                        int positions[][2]) {
   for (int i = 0; i < part_size; i++) {
@@ -93,9 +100,14 @@ int verificar_posicoes(int map[MAP_SIZE][MAP_SIZE], int part_size,
   return 1;
 }
 
+// Recebe uma lista de posições e uma direção(opcional), altera as posições base para a direção desejada ou aleatória4
+// Só recebe a direção quando o mapa é carregado
+
 void rotate_part_positions(int part_size, int positions[][2], int x, int y,
                            char *pos, char direction_char) {
   int direction;
+
+  // se nenhuma posição for passada ele aleaoriza um número de 0 a 3 que corresponde a um posição
   if (direction_char == 'E')
     direction = 0;
   else if (direction_char == 'D')
@@ -130,6 +142,7 @@ void rotate_part_positions(int part_size, int positions[][2], int x, int y,
   }
 }
 
+//soma a posição passada com o formato da peça
 void build_part_shape(int *x, int *y, int line, int column, int part_size,
                       int part_number, int positions[part_size][2]) {
   if (line == -1 || column == -1) {
@@ -146,6 +159,7 @@ void build_part_shape(int *x, int *y, int line, int column, int part_size,
   }
 }
 
+//Coloca a peça na matriz depois de ter rotacionado e verificado se ela está em um lugar vazio e dentro do mapa, caso contrario ela procura outra posição
 void colocar_peca(int map[MAP_SIZE][MAP_SIZE], int part_number,
                   int part_quantity, int isRandom, int line, int column,
                   char direction) {
@@ -187,6 +201,7 @@ void colocar_peca(int map[MAP_SIZE][MAP_SIZE], int part_number,
   }
 }
 
+// Executa o movimento passado pelo usuário ou pelo resolvedor em uma nova matriz vazia
 void move(int plays_made_len, int plays_made[plays_made_len][4],
           int map[MAP_SIZE][MAP_SIZE], int hidden_map[MAP_SIZE][MAP_SIZE],
           int line, int column, int *move_type) {
@@ -212,6 +227,7 @@ void move(int plays_made_len, int plays_made[plays_made_len][4],
   }
 }
 
+//Função que verifica se a posição jogada já foi marcada ou não
 int is_marked(int plays_made_len, int plays_made[plays_made_len][4], int line,
               int column) {
   int already_marked = 0;
@@ -229,6 +245,7 @@ int is_marked(int plays_made_len, int plays_made[plays_made_len][4], int line,
   return already_marked;
 }
 
+//Mostra a ultima jogada que caiu em uma peça
 void last_occurrence(int plays_made_len, int plays_made[plays_made_len][4],
                      int *index) {
   for (int i = plays_made_len; i > 0; i--) {
@@ -239,6 +256,7 @@ void last_occurrence(int plays_made_len, int plays_made[plays_made_len][4],
   }
 }
 
+//Aleatoriza uma jogada perto de outra jogada já feita independente se foi erro ou acerto
 void random_play(int plays_made_len, int plays_made[plays_made_len][4],
                  int *line, int *column) {
   int tests[8][2] = {{1, 0}, {-1, 0},  {0, 1},  {0, -1},
@@ -273,6 +291,7 @@ void random_play(int plays_made_len, int plays_made[plays_made_len][4],
   }
 }
 
+//Testa a posições em volta da ultima jogada bem-sucedida
 void try_to_shroud(int index, int plays_made_len,
                    int plays_made[plays_made_len][4], int *line, int *column) {
   int tests[8][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
@@ -301,6 +320,7 @@ void try_to_shroud(int index, int plays_made_len,
   }
 }
 
+// Resolvedor
 void resolver(int plays_made_len, int plays_made[plays_made_len][4], int *line,
               int *column) {
   srand(time(NULL));
@@ -309,8 +329,10 @@ void resolver(int plays_made_len, int plays_made[plays_made_len][4], int *line,
     *column = rand() % 20;
   } else {
     int index = -1;
+    //pega a ultima jogada bem feita
     last_occurrence(plays_made_len, plays_made, &index);
 
+    //se não teve jogada bem feita ele pega uma jogada já feita sendo erro e pega uma posição proxima
     if (index == -1) {
       random_play(plays_made_len, plays_made, line, column);
     } else {
@@ -318,9 +340,12 @@ void resolver(int plays_made_len, int plays_made[plays_made_len][4], int *line,
       *column = plays_made[index][1];
       try_to_shroud(index, plays_made_len, plays_made, &*line, &*column);
     }
+
+    //Caso exista uma jogada bem sucedida ele testa encima, embaixo, esquerda e direita
   }
 }
 
+//Mostra a ultima jogada feita
 void last_move(int plays_made_len, int plays_made[plays_made_len][4]) {
   int parts = plays_made[plays_made_len - 1][3];
   int line = plays_made[plays_made_len - 1][0];
@@ -343,6 +368,7 @@ void last_move(int plays_made_len, int plays_made[plays_made_len][4]) {
   printf("+----------------------------------------+\n");
 }
 
+//Mostra os erros e acertos
 void scoreboard(int hits, int mistakes) {
   printf("+----------------------------------------+\n");
   printf("| PLACAR                                 |\n");
@@ -360,6 +386,7 @@ void scoreboard(int hits, int mistakes) {
   printf("\n");
 }
 
+//mostra o menu de fim de jogo
 void game_over(int isWin, int hidden_map[MAP_SIZE][MAP_SIZE], int hits,
                int mistakes) {
   printf("+----------------------------------------+\n");
@@ -373,6 +400,7 @@ void game_over(int isWin, int hidden_map[MAP_SIZE][MAP_SIZE], int hits,
   mostrar_mapa(hidden_map);
 }
 
+//executa o jogo
 void play(int plays_made_len, int plays_made[plays_made_len][4],
           int map[MAP_SIZE][MAP_SIZE], int hidden_map[MAP_SIZE][MAP_SIZE],
           int hits, int mistakes, int withResolve, int withSleep) {
@@ -417,6 +445,7 @@ void play(int plays_made_len, int plays_made[plays_made_len][4],
 
     sleep(withSleep);
 
+    //verifica se o jogo acabou ou não
     if (hits == max_hits) {
       system("clear");
       game_over(1, hidden_map, hits, mistakes);
@@ -431,6 +460,7 @@ void play(int plays_made_len, int plays_made[plays_made_len][4],
   }
 }
 
+//Menu de seleção inicial
 void menu_map(int plays_made[2048][4], int map[MAP_SIZE][MAP_SIZE],
               int hidden_map[MAP_SIZE][MAP_SIZE]) {
   int option;
@@ -469,6 +499,7 @@ void menu_map(int plays_made[2048][4], int map[MAP_SIZE][MAP_SIZE],
   }
 }
 
+//Carrega o mapa, e inicia ao final o menu de jogatina
 void ler_mapa(int plays_made[2048][4], int map[MAP_SIZE][MAP_SIZE],
               int hidden_map[MAP_SIZE][MAP_SIZE]) {
   FILE *file;
@@ -507,6 +538,8 @@ void ler_mapa(int plays_made[2048][4], int map[MAP_SIZE][MAP_SIZE],
   fclose(file);
 }
 
+//Menu de seleção de mapa
+
 void menu(void) {
   int option;
 
@@ -521,6 +554,7 @@ void menu(void) {
   printf("-> ");
   scanf("%i", &option);
 
+  //Opção de criação de mapa
   if (option == 1) {
     pFile = fopen("./tabuleiro.txt", "w");
     fclose(pFile);
@@ -540,6 +574,7 @@ void menu(void) {
     system("clear");
     menu_map(plays_made, map, hidden_map);
   } else if (option == 2) {
+    //Opção de carregamento de mapa
     system("clear");
     int map[MAP_SIZE][MAP_SIZE];
     int hidden_map[MAP_SIZE][MAP_SIZE];
@@ -554,6 +589,8 @@ void menu(void) {
   }
 }
 
+
+//Função main
 int main(void) {
   menu();
   return 0;
